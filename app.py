@@ -6,9 +6,11 @@ from datetime import datetime, date, timedelta
 from xhtml2pdf import pisa
 import io
 
+from flask_migrate import Migrate
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'  # Replace with a secure key
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cashflow.db'
+app.config["SQLALCHEMY_DATABASE_URI"] = "your_database_url_here"
+db = SQLAlchemy(app)
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -16,6 +18,8 @@ login_manager.login_view = 'login'
 # -----------------------------
 # Models
 # -----------------------------
+from models import User, Transaction  # Import models
+
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -206,7 +210,5 @@ def report():
     response.headers['Content-Disposition'] = f'attachment; filename={report_type}_report.pdf'
     return response
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()  # Create tables if they don't exist
+if __name__ == "__main__":
     app.run(debug=True)
