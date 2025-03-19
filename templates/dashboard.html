@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+<div class="mb-4">
+  <h4>Current Balance: €{{ '%.2f'|format(balance) }}</h4>
+</div>
+
+<!-- Add Transaction Form -->
+<div class="card mb-4">
+  <div class="card-header">Add Transaction</div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('add_transaction') }}">
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label for="amount" class="form-label">Amount (€)</label>
+          <input type="number" step="0.01" class="form-control" name="amount" id="amount" required>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label for="date" class="form-label">Date</label>
+          <!-- The input remains in YYYY-MM-DD format for browser compatibility -->
+          <input type="date" class="form-control" name="date" id="date" value="{{ now().strftime('%Y-%m-%d') }}" required>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label for="transaction_type" class="form-label">Type</label>
+          <select class="form-select" name="transaction_type" id="transaction_type" required>
+            <option value="deposit">Deposit</option>
+            <option value="withdrawal">Withdrawal</option>
+          </select>
+        </div>
+        <div class="col-md-12 mb-3">
+          <label for="reason" class="form-label">Reason (Required for Withdrawal)</label>
+          <input type="text" class="form-control" name="reason" id="reason" placeholder="Enter reason">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-success">Add Transaction</button>
+    </form>
+  </div>
+</div>
+
+<!-- Transaction Filters -->
+<div class="card mb-4">
+  <div class="card-header">Filter Transactions</div>
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('dashboard') }}">
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label for="start_date" class="form-label">Start Date</label>
+          <input type="date" class="form-control" name="start_date" id="start_date">
+        </div>
+        <div class="col-md-4 mb-3">
+          <label for="end_date" class="form-label">End Date</label>
+          <input type="date" class="form-control" name="end_date" id="end_date">
+        </div>
+        <div class="col-md-4 mb-3">
+          <label for="transaction_type_filter" class="form-label">Type</label>
+          <select class="form-select" name="transaction_type" id="transaction_type_filter">
+            <option value="">All</option>
+            <option value="deposit">Deposit</option>
+            <option value="withdrawal">Withdrawal</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Apply Filters</button>
+    </form>
+  </div>
+</div>
+
+<!-- Transaction Log -->
+<div class="card mb-4">
+  <div class="card-header">Transaction Log</div>
+  <div class="card-body table-responsive">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Amount (€)</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in transactions %}
+        <tr>
+          <td>{{ tx.date.strftime('%m:%d:%Y') }}</td>
+          <td>{{ tx.transaction_type.capitalize() }}</td>
+          <td>€{{ '%.2f'|format(tx.amount) }}</td>
+          <td>{{ tx.reason }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Report Downloads -->
+<div class="mb-4">
+  <h4>Download Reports</h4>
+  <a href="{{ url_for('report', type='daily') }}" class="btn btn-secondary">Daily Report</a>
+  <a href="{{ url_for('report', type='weekly') }}" class="btn btn-secondary">Weekly Report</a>
+  <a href="{{ url_for('report', type='monthly') }}" class="btn btn-secondary">Monthly Report</a>
+  <a href="{{ url_for('report', type='yearly') }}" class="btn btn-secondary">Yearly Report</a>
+</div>
+{% endblock %}

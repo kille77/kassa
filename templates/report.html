@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{{ report_type }} Report</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        table-layout: fixed; /* Force fixed widths for columns */
+      }
+      th, td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+        white-space: normal;         /* Allow wrapping */
+        overflow-wrap: break-word;   /* Break long words */
+      }
+      th {
+        background-color: #f5f5f5;
+      }
+      /* Set a fixed width for the Reason column */
+      .reason-column {
+        width: 50%; /* Adjust as needed; this forces the column to be half the table width */
+      }
+    </style>
+  </head>
+  <body>
+    <h2>{{ report_type }} Report</h2>
+    <p>From: {{ start.strftime('%m:%d:%Y') }} To: {{ end.strftime('%m:%d:%Y') }}</p>
+    <h4>Current Balance: €{{ '%.2f'|format(balance) }}</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Amount (€)</th>
+          <th class="reason-column">Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in transactions %}
+        <tr>
+          <td>{{ tx.date.strftime('%m:%d:%Y') }}</td>
+          <td>{{ tx.transaction_type.capitalize() }}</td>
+          <td>€{{ '%.2f'|format(tx.amount) }}</td>
+          <td class="reason-column">{{ tx.reason }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>
