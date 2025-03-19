@@ -9,7 +9,7 @@ import io
 from flask_migrate import Migrate
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "your_database_url_here"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://kassa_9biv_user:UNDmoxBV4Atwk1QDohC1Zs1M5XTxT8bg@dpg-cvdj108gph6c73b2gqbg-a/kassa_9biv"
 db = SQLAlchemy(app)
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
