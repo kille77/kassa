@@ -107,7 +107,8 @@ def dashboard():
     transactions = query.order_by(Transaction.date.desc()).all()
     balance = sum(tx.amount if tx.transaction_type == 'deposit' else -tx.amount for tx in transactions)
 
-    return render_template('dashboard.html', transactions=transactions, balance=balance)
+    today = date.today()  # Add the current date here
+    return render_template('dashboard.html', transactions=transactions, balance=balance, today=today)
 
 @app.route('/add_transaction', methods=['POST'])
 @login_required
