@@ -4,6 +4,7 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, timedelta
 from xhtml2pdf import pisa
+from models import User, Transaction  # Import models
 import io
 
 from flask_migrate import Migrate
@@ -17,7 +18,7 @@ login_manager.login_view = 'login'
 # -----------------------------
 # Models
 # -----------------------------
-from models import User, Transaction  # Import models
+
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
