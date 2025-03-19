@@ -4,3 +4,4 @@ flask_login
 psycopg2-binary
 gunicorn
 xhtml2pdf
+flask-migrate
