@@ -1,46 +1,44 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user, UserMixin
+from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, timedelta
 from xhtml2pdf import pisa
-from models import User, Transaction  # Import models
 import io
 
-from flask_migrate import Migrate
-
+# Initialize Flask app
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://kassa_9biv_user:UNDmoxBV4Atwk1QDohC1Zs1M5XTxT8bg@dpg-cvdj108gph6c73b2gqbg-a/kassa_9biv"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SECRET_KEY"] = "64bf6cc27932b990e1382aa5c94c6de4"
+
+# Initialize database and migration
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
+# Initialize Login Manager
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# -----------------------------
-# Models
-# -----------------------------
-
-
+# Import models
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
-    
+
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.Date, nullable=False, default=date.today)
     transaction_type = db.Column(db.String(50), nullable=False)  # "withdrawal" or "deposit"
-    reason = db.Column(db.String(250))  # Reason for the transaction; required for withdrawals
+    reason = db.Column(db.String(250))  # Required for withdrawals
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+# User loader for Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
-# Make the current datetime available as "now" in templates
-@app.context_processor
-def inject_now():
-    return {'now': datetime.now}
 
 # -----------------------------
 # Authentication Routes
@@ -53,10 +51,7 @@ def register():
         if User.query.filter_by(username=username).first():
             flash('Username already exists!')
             return redirect(url_for('register'))
-        new_user = User(
-            username=username,
-            password=generate_password_hash(password, method='pbkdf2:sha256')
-        )
+        new_user = User(username=username, password=generate_password_hash(password, method='pbkdf2:sha256'))
         db.session.add(new_user)
         db.session.commit()
         flash('Registration successful! Please log in.')
@@ -88,13 +83,12 @@ def logout():
 @app.route('/')
 @login_required
 def dashboard():
-    # Optional filters via query string: start_date, end_date, transaction_type
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     tx_type = request.args.get('transaction_type')
-    
+
     query = Transaction.query.filter_by(user_id=current_user.id)
-    
+
     if start_date:
         try:
             start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -109,10 +103,10 @@ def dashboard():
             pass
     if tx_type and tx_type in ['withdrawal', 'deposit']:
         query = query.filter_by(transaction_type=tx_type)
-    
+
     transactions = query.order_by(Transaction.date.desc()).all()
     balance = sum(tx.amount if tx.transaction_type == 'deposit' else -tx.amount for tx in transactions)
-    
+
     return render_template('dashboard.html', transactions=transactions, balance=balance)
 
 @app.route('/add_transaction', methods=['POST'])
@@ -122,30 +116,23 @@ def add_transaction():
     date_str = request.form.get('date')
     transaction_type = request.form.get('transaction_type')
     reason = request.form.get('reason', '').strip()
-    
+
     try:
         amount = float(amount)
     except ValueError:
         flash('Invalid amount entered.')
         return redirect(url_for('dashboard'))
-    
+
     try:
         tx_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         tx_date = date.today()
 
-    # Validate that reason is provided for withdrawals
     if transaction_type == 'withdrawal' and not reason:
         flash('Reason is required for a withdrawal.')
         return redirect(url_for('dashboard'))
-    
-    new_tx = Transaction(
-        amount=amount,
-        date=tx_date,
-        transaction_type=transaction_type,
-        reason=reason,
-        user_id=current_user.id
-    )
+
+    new_tx = Transaction(amount=amount, date=tx_date, transaction_type=transaction_type, reason=reason, user_id=current_user.id)
     db.session.add(new_tx)
     db.session.commit()
     flash('Transaction added successfully!')
@@ -157,58 +144,38 @@ def add_transaction():
 @app.route('/report')
 @login_required
 def report():
-    report_type = request.args.get('type', 'daily')  # Options: daily, weekly, monthly, yearly
+    report_type = request.args.get('type', 'daily')
     today = date.today()
-    
-    # Determine report period based on type
+
     if report_type == 'daily':
-        start = today
-        end = today
+        start, end = today, today
     elif report_type == 'weekly':
-        start = today - timedelta(days=today.weekday())  # Monday
-        end = start + timedelta(days=6)
+        start, end = today - timedelta(days=today.weekday()), today
     elif report_type == 'monthly':
-        start = today.replace(day=1)
-        if today.month == 12:
-            next_month = today.replace(year=today.year+1, month=1, day=1)
-        else:
-            next_month = today.replace(month=today.month+1, day=1)
-        end = next_month - timedelta(days=1)
+        start, end = today.replace(day=1), (today.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
     elif report_type == 'yearly':
-        start = today.replace(month=1, day=1)
-        end = today.replace(month=12, day=31)
+        start, end = today.replace(month=1, day=1), today.replace(month=12, day=31)
     else:
         flash('Invalid report type.')
         return redirect(url_for('dashboard'))
-    
-    transactions = Transaction.query.filter(
-        Transaction.user_id == current_user.id,
-        Transaction.date >= start,
-        Transaction.date <= end
-    ).order_by(Transaction.date.desc()).all()
+
+    transactions = Transaction.query.filter(Transaction.user_id == current_user.id, Transaction.date >= start, Transaction.date <= end).order_by(Transaction.date.desc()).all()
     balance = sum(tx.amount if tx.transaction_type == 'deposit' else -tx.amount for tx in transactions)
-    
-    # Render the HTML for the report
-    rendered = render_template(
-        'report.html',
-        transactions=transactions,
-        balance=balance,
-        report_type=report_type.capitalize(),
-        start=start,
-        end=end
-    )
-    
-    # Create a PDF file from the rendered HTML using xhtml2pdf
+
+    rendered = render_template('report.html', transactions=transactions, balance=balance, report_type=report_type.capitalize(), start=start, end=end)
     pdf = io.BytesIO()
     pisa_status = pisa.CreatePDF(rendered, dest=pdf)
-    
+
     if pisa_status.err:
         flash('Error generating PDF report.')
         return redirect(url_for('dashboard'))
-    
+
     response = Response(pdf.getvalue(), mimetype='application/pdf')
     response.headers['Content-Disposition'] = f'attachment; filename={report_type}_report.pdf'
     return response
 
+# -----------------------------
+# Run App
+# -----------------------------
 if __name__ == "__main__":
     app.run(debug=True)
